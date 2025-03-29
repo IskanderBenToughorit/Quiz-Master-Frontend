@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Input } from "@/components/ui/input";
-import { Lock, Unlock, Users, ChevronRight, Loader2, ArrowLeft, Clock, Trophy } from 'lucide-react';
+import { Lock, Unlock, Users, ChevronRight, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +32,7 @@ import {
 
 const Duo = () => {
   const { user } = useAuth();
-  const [gameState, setGameState] = useState('waiting'); // waiting, lobby, playing, ended
+  const [gameState, setGameState] = useState('waiting'); // waiting, playing, ended
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
@@ -54,11 +54,6 @@ const Duo = () => {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [winnerData, setWinnerData] = useState<{
-    winner: string;
-    playerScore: number;
-    opponentScore: number;
-  } | null>(null);
   
   useEffect(() => {
     if (gameState === 'playing' && timeLeft > 0) {
@@ -87,7 +82,7 @@ const Duo = () => {
       toast.success('Opponent found!');
       setIsSearching(false);
       setSearchProgress(0);
-      enterLobby();
+      loadQuestions();
     }
   }, [isSearching, searchProgress]);
 
@@ -102,7 +97,7 @@ const Duo = () => {
     } catch (err) {
       setError('Failed to load questions. Please try again.');
       toast.error('Failed to load questions');
-      setGameState('lobby');
+      setGameState('waiting');
     } finally {
       setIsLoading(false);
     }
@@ -130,14 +125,9 @@ const Duo = () => {
     setShowCreatePrivateDialog(true);
   };
 
-  const enterLobby = () => {
-    setGameState('lobby');
-    setShowCreatePrivateDialog(false);
-    setShowJoinPrivateDialog(false);
-  };
-
   const startPrivateGame = () => {
-    enterLobby();
+    setShowCreatePrivateDialog(false);
+    loadQuestions();
   };
 
   const joinPrivateGame = () => {
@@ -147,7 +137,7 @@ const Duo = () => {
     }
     
     setShowJoinPrivateDialog(false);
-    enterLobby();
+    loadQuestions();
   };
 
   const startGame = () => {
@@ -155,18 +145,6 @@ const Duo = () => {
     setCurrentQuestion(0);
     setScore(0);
     setTimeLeft(30);
-    setOpponent(prev => ({
-      ...prev,
-      score: 0,
-      answers: []
-    }));
-  };
-
-  const handleLeaveLobby = () => {
-    setGameState('waiting');
-    toast('You left the game lobby', {
-      duration: 2000,
-    });
   };
 
   const handleAnswer = (selectedOption: number | null) => {
@@ -175,41 +153,23 @@ const Duo = () => {
     const currentQuestionData = questions[currentQuestion];
     
     if (selectedOption !== null) {
-      const isCorrect = selectedOption === currentQuestionData.correctAnswer;
+      const selectedAnswerText = currentQuestionData.options[selectedOption];
+      const isCorrect = selectedAnswerText === currentQuestionData.correctAnswer;
       
       if (isCorrect) {
         setScore(score + 1);
         toast.success('Correct!');
       } else {
-        toast.error(`Incorrect! The correct answer was ${currentQuestionData.options[currentQuestionData.correctAnswer]}.`);
+        toast.error(`Incorrect! The correct answer was ${currentQuestionData.correctAnswer}.`);
       }
     } else {
-      toast.error(`Time's up! The correct answer was ${currentQuestionData.options[currentQuestionData.correctAnswer]}.`);
-    }
-
-    // Simulate opponent answering
-    const randomCorrect = Math.random() > 0.5;
-    if (randomCorrect) {
-      setOpponent(prev => ({
-        ...prev,
-        score: prev.score + 1
-      }));
+      toast.error(`Time's up! The correct answer was ${currentQuestionData.correctAnswer}.`);
     }
 
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
       setTimeLeft(30);
     } else {
-      // Game has ended, determine winner
-      const playerScore = score + (selectedOption !== null && selectedOption === currentQuestionData.correctAnswer ? 1 : 0);
-      const opponentScore = opponent.score + (randomCorrect ? 1 : 0);
-      
-      setWinnerData({
-        winner: playerScore > opponentScore ? 'You' : playerScore === opponentScore ? 'Tie' : opponent.name,
-        playerScore,
-        opponentScore
-      });
-      
       setGameState('ended');
     }
   };
@@ -358,89 +318,6 @@ const Duo = () => {
           </Tabs>
         )}
         
-        {gameState === 'lobby' && (
-          <Card className="w-full max-w-4xl mx-auto">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="flex items-center">
-                  <Users className="mr-2 h-5 w-5 text-quiz-primary" /> Game Lobby
-                </CardTitle>
-                <Badge className="bg-amber-500">
-                  Waiting for players
-                </Badge>
-              </div>
-              <CardDescription>
-                {privateGameCode ? `Private Game: ${privateGameCode}` : 'Quick Match'} • {selectedCategory}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="col-span-2 space-y-4">
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-semibold">Players</h3>
-                    <div className="flex gap-4">
-                      <div className="flex items-center gap-3 p-3 bg-gray-100 rounded-md">
-                        <Avatar>
-                          <AvatarImage src={user?.avatar || "/placeholder.svg"} alt="Your Avatar" />
-                          <AvatarFallback>{user?.username?.slice(0, 2).toUpperCase() || "P1"}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <h2 className="font-semibold">{user?.username || "You"}</h2>
-                          <p className="text-xs text-green-500 flex items-center">
-                            <Clock className="h-3 w-3 mr-1" /> Ready
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 p-3 bg-gray-100 rounded-md">
-                        <Avatar>
-                          <AvatarImage src={opponent.avatar} alt={opponent.name} />
-                          <AvatarFallback>{opponent.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <h2 className="font-semibold">{opponent.name}</h2>
-                          <p className="text-xs text-green-500 flex items-center">
-                            <Clock className="h-3 w-3 mr-1" /> Ready
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-8">
-                    <h3 className="text-lg font-semibold mb-3">Game Info</h3>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="font-medium">Category:</span> {selectedCategory}
-                      </div>
-                      <div>
-                        <span className="font-medium">Questions:</span> {questions.length || 10}
-                      </div>
-                      <div>
-                        <span className="font-medium">Time per question:</span> 30s
-                      </div>
-                      <div>
-                        <span className="font-medium">Game mode:</span> Duo
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <Chat roomId={gameId} username={user?.username || username} />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button variant="outline" onClick={handleLeaveLobby}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Leave
-              </Button>
-              <Button className="bg-quiz-primary" onClick={loadQuestions}>
-                Start Game
-              </Button>
-            </CardFooter>
-          </Card>
-        )}
-        
         {isLoading && (
           <div className="w-full flex justify-center items-center py-12">
             <div className="text-center">
@@ -494,30 +371,17 @@ const Duo = () => {
               {/* Player stats */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Players</CardTitle>
+                  <CardTitle>Your Stats</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-4">
-                      <Avatar>
-                        <AvatarImage src={user?.avatar || "/placeholder.svg"} alt="Your Avatar" />
-                        <AvatarFallback>{user?.username?.slice(0, 2).toUpperCase() || "P1"}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h2 className="text-lg font-semibold">{user?.username || "You"}</h2>
-                        <p className="text-gray-500">Score: {score}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-4">
-                      <Avatar>
-                        <AvatarImage src={opponent.avatar} alt={opponent.name} />
-                        <AvatarFallback>{opponent.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h2 className="text-lg font-semibold">{opponent.name}</h2>
-                        <p className="text-gray-500">Score: {opponent.score}</p>
-                      </div>
+                  <div className="flex items-center space-x-4">
+                    <Avatar>
+                      <AvatarImage src={user?.avatar || "/placeholder.svg"} alt="Your Avatar" />
+                      <AvatarFallback>{user?.username?.slice(0, 2).toUpperCase() || "P1"}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h2 className="text-lg font-semibold">{user?.username || "You"}</h2>
+                      <p className="text-gray-500">Score: {score}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -528,52 +392,20 @@ const Duo = () => {
           </div>
         )}
         
-        {gameState === 'ended' && winnerData && (
-          <Card className="w-[80%] max-w-lg mx-auto">
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-2xl flex items-center justify-center">
-                <Trophy className="mr-2 h-6 w-6 text-yellow-500" /> 
-                Game Over!
-              </CardTitle>
-              <CardDescription>
-                {winnerData.winner === 'Tie' 
-                  ? "It's a tie!" 
-                  : `${winnerData.winner} won the game!`}
-              </CardDescription>
+        {gameState === 'ended' && (
+          <Card className="w-[80%] mx-auto">
+            <CardHeader>
+              <CardTitle>Game Over!</CardTitle>
+              <CardDescription>Your final score: {score}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex justify-between items-center mb-6 p-4 bg-gray-50 rounded-lg">
-                <div className="text-center">
-                  <Avatar className="mx-auto mb-2 h-16 w-16 border-2 border-quiz-primary">
-                    <AvatarImage src={user?.avatar || "/placeholder.svg"} alt="Your Avatar" />
-                    <AvatarFallback className="text-lg">{user?.username?.slice(0, 2).toUpperCase() || "P1"}</AvatarFallback>
-                  </Avatar>
-                  <h3 className="font-semibold">{user?.username || "You"}</h3>
-                  <p className="text-3xl font-bold text-quiz-primary">{winnerData.playerScore}</p>
-                </div>
-                
-                <div className="text-xl font-bold">vs</div>
-                
-                <div className="text-center">
-                  <Avatar className="mx-auto mb-2 h-16 w-16 border-2 border-quiz-secondary">
-                    <AvatarImage src={opponent.avatar} alt={opponent.name} />
-                    <AvatarFallback className="text-lg">{opponent.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <h3 className="font-semibold">{opponent.name}</h3>
-                  <p className="text-3xl font-bold text-quiz-secondary">{winnerData.opponentScore}</p>
-                </div>
-              </div>
-              
-              <div className="text-center">
-                <p className="font-medium">Category: {selectedCategory}</p>
-                <p className="text-gray-500">Thanks for playing!</p>
-              </div>
+              <p className="text-lg">Thanks for playing in {selectedCategory}!</p>
             </CardContent>
             <CardFooter className="flex justify-between">
               <Button variant="outline" onClick={() => setGameState('waiting')}>
                 Back to Lobby
               </Button>
-              <Button onClick={() => setGameState('lobby')} className="bg-quiz-primary">
+              <Button onClick={() => setGameState('waiting')} className="bg-quiz-primary">
                 Play Again
               </Button>
             </CardFooter>
@@ -609,7 +441,7 @@ const Duo = () => {
               Copy Code
             </Button>
             <Button onClick={startPrivateGame} className="bg-quiz-primary">
-              Enter Lobby
+              Start Game
             </Button>
           </DialogFooter>
         </DialogContent>

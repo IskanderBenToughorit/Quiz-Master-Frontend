@@ -71,6 +71,7 @@ export const userApi = {
   getProfile: (id: string) => api(`/user/profile/${id}`),
   updateProfile: (userData: any, token: string) => api('/user/profile', { method: 'PUT', body: userData, token }),
   updateStats: (statsData: any, token: string) => api('/user/stats', { method: 'PUT', body: statsData, token }),
+  postStatistics: (payload: any, token: string) => api('/statistics', { method: 'POST', body: payload, token }),
   getLeaderboard: () => api('/user/leaderboard'),
 };
 
@@ -179,5 +180,11 @@ export const tournamentApi = {
     return await response.json();
   }
 };
+
+export const duoApi = {
+  create: (data: any, token: string) => api('/duo', { method: 'POST', body: data, token }),
+  join: (accessCode: string, token: string) => api('/duo/join', { method: 'POST', body: { accessCode }, token }),
+};
+
 
 export default api;

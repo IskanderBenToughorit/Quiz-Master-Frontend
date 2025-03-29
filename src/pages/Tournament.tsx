@@ -4,8 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Chat from "@/components/Chat";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +13,7 @@ import Navigation from '@/components/Navigation';
 import TournamentList from '@/components/TournamentList';
 import { useAuth } from '@/context/AuthContext';
 import { tournamentApi } from '@/lib/api';
-import { QuizCategory, availableCategories } from '@/services/triviaService';
+import { QuizCategory, availableCategories } from '@/services/TriviaService';
 import { 
   Dialog,
   DialogContent,

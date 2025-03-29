@@ -7,7 +7,8 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import Navigation from '@/components/Navigation';
 import { QuizCategory, QuizQuestion, useTriviaQuestions } from '@/services/TriviaService';
-
+import { userApi } from "@/lib/api"; 
+import { useAuth } from "@/context/AuthContext"; 
 // Updated categories to match requirements
 const categories: QuizCategory[] = [
   "General Knowledge", 
@@ -27,10 +28,12 @@ const Solo = () => {
   const [isAnswered, setIsAnswered] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
-  
+  const { user, token } = useAuth();
   // Fetch questions using React Query
   const { data: quizQuestions, isLoading, error } = useTriviaQuestions(selectedCategory);
   
+  
+
   // Timer effect
   useEffect(() => {
     let timerId: number | undefined;
@@ -100,18 +103,58 @@ const Solo = () => {
     }, 1500);
   };
 
-  const goToNextQuestion = () => {
+  const updateStatistics = async () => {
+    if (!user || !token || !quizQuestions) return;
+  
+    const payload = {
+      userId: user.id,
+      mode: 'solo',
+      category: selectedCategory,
+      totalQuestions: quizQuestions.length,
+      correctAnswers: score,
+      win: score >= quizQuestions.length * 0.8
+    };
+  
+    try {
+      console.log("🔐 Token envoyé :", token);
+
+      const response = await fetch('http://localhost:5000/api/statistics', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`, // <-- ici
+        },
+        body: JSON.stringify(payload),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update statistics');
+      }
+  
+      console.log("✅ Statistiques mises à jour avec succès !");
+    } catch (error: any) {
+      console.error("❌ Erreur lors de la mise à jour des statistiques :", error);
+      throw new Error("Failed to update statistics");
+    }
+  };
+  const goToNextQuestion = async () => {
     if (!quizQuestions) return;
-    
+  
     if (currentQuestionIndex < quizQuestions.length - 1) {
       setCurrentQuestionIndex((prevIndex) => prevIndex + 1);
       setTimeLeft(15);
       setIsAnswered(false);
       setSelectedOption(null);
     } else {
+      await updateStatistics(); // 👈 ici !
+      sessionStorage.setItem("refreshStats", "true");
       setGameOver(true);
     }
   };
+  
+
+
 
   // Show loading state
   if (isLoading && !gameStarted) {
